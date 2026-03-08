@@ -41,7 +41,7 @@ dependencies {
         if (!localPath.isNullOrBlank() && java.io.File(localPath).exists()) {
             local(localPath)
         } else {
-            phpStorm(providers.gradleProperty("platformVersion"))
+            phpstorm(providers.gradleProperty("platformVersion"))
         }
         // local("/home/yan/tools/PhpStorm-253.31033.138")
 
