@@ -37,7 +37,13 @@ dependencies {
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        local("/home/yan/tools/PhpStorm-253.31033.138")
+        val localPath = findProperty("localPhpStormPath")?.toString()
+        if (!localPath.isNullOrBlank() && java.io.File(localPath).exists()) {
+            local(localPath)
+        } else {
+            phpStorm(providers.gradleProperty("platformVersion"))
+        }
+        // local("/home/yan/tools/PhpStorm-253.31033.138")
 
         bundledPlugin("com.jetbrains.php")
 
