@@ -38,7 +38,7 @@ dependencies {
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
         val localPath = findProperty("localPhpStormPath")?.toString()
-        if (!localPath.isNullOrBlank() && java.io.File(localPath).exists()) {
+        if (!localPath.isNullOrBlank() && project.file(localPath).exists()) {
             local(localPath)
         } else {
             phpstorm(providers.gradleProperty("platformVersion"))
