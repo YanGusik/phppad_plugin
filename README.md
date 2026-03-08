@@ -36,14 +36,14 @@ A Tinkerwell-like interactive PHP scratch pad that runs code on your **remote se
 - **Tree renderer** — lightweight Swing fallback with colored node types
 - **Snippets** — save frequently used code snippets and insert them instantly
 - **Run history** — browse past runs with connection info, duration, and full code; create snippets from history
-- **Ctrl+Enter** to run (configurable in Settings → Keymap → PhpPad: Run Code)
+- **Ctrl+Enter** to run (configurable in Settings → Keymap → PHPPad: Run Code)
 - **Flexible layout** — toggle between vertical (↕) and horizontal (↔) split
 - **Multiple connections** — manage SSH and Docker connections with built-in test connection
 - **Persistent settings** — connections, last code, and preferences survive IDE restarts
 
 ### 🚀 Quick Start
 
-1. Open the **PhpPad** tool window (bottom bar)
+1. Open the **PHPPad** tool window (bottom bar)
 2. Click **+** → Add SSH or Docker connection
 3. Write PHP code in the editor
 4. Press **Ctrl+Enter** or click **▶ Run**
