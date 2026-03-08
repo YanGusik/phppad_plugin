@@ -18,11 +18,45 @@
 - [ ] Configure the [CODECOV_TOKEN](https://docs.codecov.com/docs/quick-start) secret for automated test coverage reports on PRs
 
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
+## PHPPad — PHP REPL for PhpStorm
 
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
+A Tinkerwell-like interactive PHP scratch pad that runs code on your **remote server via SSH** or inside a **Docker container** — right inside PhpStorm, without leaving the IDE.
 
-To keep everything working, do not remove `<!-- ... -->` sections. 
+### ✨ Features
+
+- **Full PHP editor** with syntax highlighting, autocomplete, and all PhpStorm intelligence
+- **SSH & Docker connections** — connect to any remote server or local Docker container
+- **Laravel bootstrap** — automatically bootstraps your Laravel app so you can use models, facades, and helpers directly
+- **Magic comments** — add `//?` after any expression to see its value inline in the editor
+- **Inline inlay hints** — magic comment values appear right next to the code, non-intrusively
+- **Return values** — all expression results displayed in a rich tree view with type coloring
+- **SQL query log** — all database queries captured and shown with execution time, collapsed by default
+- **Exception trace** — full stack traces with file and line numbers
+- **JCEF renderer** (default) — beautiful HTML result panel with collapsible Tree/Table toggle for collections
+- **Tree renderer** — lightweight Swing fallback with colored node types
+- **Snippets** — save frequently used code snippets and insert them instantly
+- **Run history** — browse past runs with connection info, duration, and full code; create snippets from history
+- **Ctrl+Enter** to run (configurable in Settings → Keymap → PhpPad: Run Code)
+- **Flexible layout** — toggle between vertical (↕) and horizontal (↔) split
+- **Multiple connections** — manage SSH and Docker connections with built-in test connection
+- **Persistent settings** — connections, last code, and preferences survive IDE restarts
+
+### 🚀 Quick Start
+
+1. Open the **PhpPad** tool window (bottom bar)
+2. Click **+** → Add SSH or Docker connection
+3. Write PHP code in the editor
+4. Press **Ctrl+Enter** or click **▶ Run**
+
+### 🔧 Magic Comments
+
+```php
+$users = User::limit(10)->get(); //?
+// Inline result shown next to the line: ← array(10)
+
+// Works mid-chain too:
+User::limit(10)->get()/*?*/->count()/*?*/->pluck('email');
+```
 <!-- Plugin description end -->
 
 ## Installation

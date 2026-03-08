@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+:root {
+  --bg: #1e1e1e; --bg2: #252526; --bg3: #2d2d30;
+  --border: #3c3c3c; --text: #d4d4d4; --dim: #858585;
+  --green: #4ec994; --blue: #4fc1ff; --orange: #ce9178;
+  --purple: #c586c0; --red: #f44747; --teal: #9cdcfe;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  padding: 8px;
+  line-height: 1.6;
+}
+#root { display: flex; flex-direction: column; gap: 6px; }
+.header { color: var(--dim); font-size: 11px; padding: 2px 4px; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.card-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px; background: var(--bg3);
+  border-bottom: 1px solid var(--border); font-size: 11px;
+}
+.card-header.clickable { cursor: pointer; user-select: none; }
+.card-header.clickable:hover { background: #333; }
+.badge {
+  background: #4a4a4a; border-radius: 10px;
+  padding: 0 6px; font-size: 10px; color: var(--text);
+  font-weight: bold; min-width: 18px; text-align: center;
+}
+.badge.sql-badge { background: #1a3a5c; color: var(--blue); }
+.card-body { padding: 6px 10px; }
+.v-null { color: var(--dim); font-style: italic; }
+.v-bool { color: var(--blue); }
+.v-num  { color: var(--teal); }
+.v-str  { color: var(--orange); }
+.v-len  { color: var(--dim); font-size: 10px; }
+.v-cls  { color: var(--green); }
+.node-toggle { color: var(--dim); cursor: pointer; user-select: none; font-size: 10px; display: inline-block; width: 14px; }
+.node-toggle:hover { color: var(--text); }
+.tree   { padding-left: 14px; border-left: 1px solid var(--border); margin-left: 2px; }
+.tree-row { display: flex; align-items: baseline; gap: 4px; padding: 1px 0; }
+.tree-key { color: var(--dim); }
+.toggle { display: flex; gap: 3px; margin-left: auto; }
+.tbtn {
+  background: none; border: 1px solid var(--border);
+  color: var(--dim); padding: 0 7px; border-radius: 2px;
+  cursor: pointer; font-size: 10px; font-family: inherit;
+}
+.tbtn.on { background: #383838; color: var(--text); border-color: #555; }
+table { border-collapse: collapse; width: 100%; }
+th {
+  background: var(--bg3); color: var(--dim);
+  text-transform: uppercase; font-size: 10px;
+  font-weight: normal; padding: 3px 8px;
+  border-bottom: 1px solid var(--border); text-align: left;
+}
+td { padding: 2px 8px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--bg3); }
+.sql-section { border-left: 2px solid var(--blue); }
+.sql-section-header { border-bottom: 1px solid var(--border); }
+.sql-item { border-top: 1px solid var(--border); }
+.sql-item:first-child { border-top: none; }
+.sql-time { color: var(--blue); }
+.sql-body { color: var(--teal); white-space: pre-wrap; padding: 6px 10px; font-size: 11px; }
+.out-body { white-space: pre-wrap; padding: 6px 10px; }
+.err-bar { border-left: 2px solid var(--red); }
+.err-class { color: var(--red); font-weight: bold; }
+.err-msg { margin-top: 3px; }
+.err-loc { color: var(--dim); font-size: 11px; margin-top: 2px; }
+.trace { color: var(--dim); font-size: 11px; padding: 1px 0; }
+.empty { color: var(--dim); font-style: italic; text-align: center; padding: 20px; }
+.panel-arrow { color: var(--dim); margin-left: auto; font-size: 10px; }
+</style>
+</head>
+<body>
+<div id="root"><div class="empty">Run some code to see results</div></div>
+<script>
+var esc = function(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+};
+var shortCls = function(c) { return c ? c.split('\\').pop() : 'object'; };
+var _nc = 0;
+
+window.toggleNode = function(id) {
+  var el = document.getElementById(id);
+  var arrow = document.getElementById(id + '-a');
+  if (!el) return;
+  var collapsed = el.style.display === 'none';
+  el.style.display = collapsed ? '' : 'none';
+  if (arrow) arrow.textContent = collapsed ? '▼' : '▶';
+};
+
+window.togglePanel = function(id) {
+  var body = document.getElementById(id + '-body');
+  var arrow = document.getElementById(id + '-arrow');
+  if (!body) return;
+  var collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  if (arrow) arrow.textContent = collapsed ? '▼' : '▶';
+};
+
+function renderVal(v, depth) {
+  depth = depth || 0;
+  if (!v) return '<span class="v-null">null</span>';
+  switch(v.type) {
+    case 'null':  return '<span class="v-null">null</span>';
+    case 'bool':  return '<span class="v-bool">' + (v.value ? 'true' : 'false') + '</span>';
+    case 'int':
+    case 'float': return '<span class="v-num">' + esc(String(v.value)) + '</span>';
+    case 'string':
+      var s = String(v.value || '');
+      return '<span class="v-str">"' + esc(s.length > 120 ? s.substring(0,120)+'\u2026' : s) + '"</span>' +
+             (v.length ? ' <span class="v-len">(' + v.length + ')</span>' : '');
+    case 'array':
+      if (depth > 5) return '<span class="v-cls">array(' + (v.count||0) + ')</span>';
+      return renderArray(v, depth);
+    case 'object':
+      if (depth > 5) return '<span class="v-cls">' + esc(shortCls(v.class)) + '</span>';
+      return renderObj(v, depth);
+    default: return '<span>' + esc(String(v.value||'')) + '</span>';
+  }
+}
+
+function renderArray(v, depth) {
+  if (!v.items || !v.items.length) return '<span class="v-cls">array(0)</span>';
+  var id = 'n' + (_nc++);
+  var h = '<div><span onclick="toggleNode(\'' + id + '\')" style="cursor:pointer">' +
+    '<span class="node-toggle" id="' + id + '-a">▼</span>' +
+    '<span class="v-cls">array(' + v.count + ')</span></span>' +
+    '<div class="tree" id="' + id + '">';
+  for (var i = 0; i < v.items.length; i++) {
+    h += '<div class="tree-row"><span class="tree-key">' + esc(String(v.keys[i])) + '</span><span>\u2192</span>' + renderVal(v.items[i], depth+1) + '</div>';
+  }
+  return h + '</div></div>';
+}
+
+function renderObj(v, depth) {
+  var clsName = esc(shortCls(v.class));
+  if (!v.items || !v.items.length) return '<span class="v-cls">' + clsName + '</span>';
+  var id = 'n' + (_nc++);
+  var h = '<div><span onclick="toggleNode(\'' + id + '\')" style="cursor:pointer">' +
+    '<span class="node-toggle" id="' + id + '-a">▼</span>' +
+    '<span class="v-cls">' + clsName + '</span></span>' +
+    '<div class="tree" id="' + id + '">';
+  for (var i = 0; i < v.items.length; i++) {
+    h += '<div class="tree-row"><span class="tree-key">' + esc(String(v.keys[i])) + '</span><span>\u2192</span>' + renderVal(v.items[i], depth+1) + '</div>';
+  }
+  return h + '</div></div>';
+}
+
+function isTabular(v) {
+  if (v.type !== 'array' || !v.items || v.items.length < 1) return false;
+  var f = v.items[0];
+  if (!f || (f.type !== 'object' && f.type !== 'array')) return false;
+  var keys = JSON.stringify(f.keys);
+  return v.items.every(function(it) { return JSON.stringify(it.keys) === keys; });
+}
+
+function renderTable(v) {
+  var keys = v.items[0].keys;
+  var h = '<div style="overflow-x:auto"><table><thead><tr><th>#</th>';
+  keys.forEach(function(k) { h += '<th>' + esc(k) + '</th>'; });
+  h += '</tr></thead><tbody>';
+  v.items.forEach(function(row, i) {
+    h += '<tr><td class="tree-key">' + (i+1) + '</td>';
+    row.items.forEach(function(c) { h += '<td>' + renderVal(c, 2) + '</td>'; });
+    h += '</tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
+window.switchMode = function(id, mode) {
+  document.getElementById(id+'-tree').style.display = mode==='tree' ? '' : 'none';
+  document.getElementById(id+'-table').style.display = mode==='table' ? '' : 'none';
+  document.getElementById(id+'-tbtn').className = 'tbtn' + (mode==='tree'?' on':'');
+  document.getElementById(id+'-tbtn2').className = 'tbtn' + (mode==='table'?' on':'');
+};
+
+function renderCard(v, idx) {
+  var id = 'c' + idx;
+  var tab = isTabular(v);
+  var hdr = '<div class="card-header"><span class="badge">' + (idx+1) + '</span>';
+  if (tab) {
+    hdr += '<span class="toggle">' +
+      '<button class="tbtn on" id="'+id+'-tbtn" onclick="switchMode(\''+id+'\',\'tree\')">Tree</button>' +
+      '<button class="tbtn" id="'+id+'-tbtn2" onclick="switchMode(\''+id+'\',\'table\')">Table</button>' +
+      '</span>';
+  }
+  hdr += '</div>';
+  var body = '<div class="card-body">' +
+    '<div id="'+id+'-tree">' + renderVal(v, 0) + '</div>' +
+    (tab ? '<div id="'+id+'-table" style="display:none">' + renderTable(v) + '</div>' : '') +
+    '</div>';
+  return '<div class="card">' + hdr + body + '</div>';
+}
+
+function renderSqlSection(queries) {
+  var id = 'sql-section';
+  var h = '<div class="card sql-section">' +
+    '<div class="card-header clickable sql-section-header" onclick="togglePanel(\'' + id + '\')">' +
+    '<span class="sql-time">SQL</span>' +
+    '<span class="badge sql-badge">' + queries.length + '</span>' +
+    '<span class="panel-arrow" id="' + id + '-arrow">▼</span>' +
+    '</div>' +
+    '<div id="' + id + '-body">';
+  queries.forEach(function(q) {
+    h += '<div class="sql-item">' +
+      '<div class="card-header" style="background:transparent"><span class="sql-time">' + (q.time||0).toFixed(2) + 'ms</span></div>' +
+      '<div class="sql-body">' + esc(q.sql) + '</div>' +
+      '</div>';
+  });
+  return h + '</div></div>';
+}
+
+window.clearResult = function() {
+  _nc = 0;
+  document.getElementById('root').innerHTML = '<div class="empty">Run some code to see results</div>';
+};
+
+window.renderResult = function(data) {
+  _nc = 0;
+  var h = '';
+  if (data.error) {
+    h = '<div class="card err-bar"><div class="card-body"><div class="err-class">Error</div><div class="err-msg">' + esc(data.error) + '</div></div></div>';
+    document.getElementById('root').innerHTML = h; return;
+  }
+  h += '<div class="header">' + (data.duration||0).toFixed(2) + 'ms';
+  if (data.phpVersion) h += '  PHP ' + data.phpVersion;
+  if (!data.bootstrapped) h += '  (no Laravel)';
+  h += '</div>';
+  if (data.bootstrapError) {
+    h += '<div class="card err-bar"><div class="card-body"><div class="err-class">Bootstrap Error</div><div class="err-msg">' + esc(data.bootstrapError) + '</div></div></div>';
+  }
+  // SQL queries at the top (collapsible)
+  if (data.queries && data.queries.length) {
+    h += renderSqlSection(data.queries);
+  }
+  if (data.returnValues && data.returnValues.length) {
+    data.returnValues.forEach(function(v, i) { h += renderCard(v, i); });
+  }
+  if (data.output && data.output.trim()) {
+    h += '<div class="card"><div class="card-header"><span class="badge">output</span></div><div class="out-body">' + esc(data.output.trim()) + '</div></div>';
+  }
+  if (data.exception) {
+    var e = data.exception;
+    h += '<div class="card err-bar"><div class="card-body"><div class="err-class">' + esc(e.class) + '</div>' +
+      '<div class="err-msg">' + esc(e.message) + '</div>' +
+      '<div class="err-loc">' + esc(e.file) + ':' + e.line + '</div>';
+    (e.trace||[]).forEach(function(f) {
+      h += '<div class="trace">  ' + esc(f.call) + '  ' + esc(f.file) + ':' + f.line + '</div>';
+    });
+    h += '</div></div>';
+  }
+  document.getElementById('root').innerHTML = h || '<div class="empty">No output</div>';
+};
+</script>
+</body>
+</html>

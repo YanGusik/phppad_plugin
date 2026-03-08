@@ -1,15 +1,75 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.yangusik.phppadplugin</id>
-    <name>phppad_plugin</name>
+    <name>PhpPad</name>
     <vendor>yangusik</vendor>
 
-    <depends>com.intellij.modules.platform</depends>
+    <description><![CDATA[
+<h2>PhpPad — PHP REPL for PhpStorm</h2>
+<p>
+  A Tinkerwell-like interactive PHP scratch pad that runs code on your <strong>remote server via SSH</strong>
+  or inside a <strong>Docker container</strong> — right inside PhpStorm, without leaving the IDE.
+</p>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
+<h3>✨ Features</h3>
+<ul>
+  <li><strong>Full PHP editor</strong> with syntax highlighting, autocomplete, and all PhpStorm intelligence</li>
+  <li><strong>SSH &amp; Docker connections</strong> — connect to any remote server or local Docker container</li>
+  <li><strong>Laravel bootstrap</strong> — automatically bootstraps your Laravel app so you can use models, facades, and helpers directly</li>
+  <li><strong>Magic comments</strong> — add <code>//? </code> after any expression to see its value inline in the editor:<br/>
+    <code>$users = User::limit(5)->get(); //?  // ← array(5)</code>
+  </li>
+  <li><strong>Inline inlay hints</strong> — magic comment values appear right next to the code, non-intrusively</li>
+  <li><strong>Return values</strong> — all expression results displayed in a rich tree view with type coloring</li>
+  <li><strong>SQL query log</strong> — all database queries captured and shown with execution time</li>
+  <li><strong>Exception trace</strong> — full stack traces with file and line numbers</li>
+  <li><strong>JCEF renderer</strong> (default) — beautiful HTML result panel with Tree/Table toggle for collections</li>
+  <li><strong>Tree renderer</strong> — lightweight Swing fallback with colored node types</li>
+  <li><strong>Snippets</strong> — save frequently used code snippets and insert them instantly</li>
+  <li><strong>Run history</strong> — browse past runs with connection info, duration, and full code</li>
+  <li><strong>Ctrl+Enter</strong> to run (configurable in Settings → Keymap → PhpPad: Run Code)</li>
+  <li><strong>Flexible layout</strong> — toggle between vertical (↕) and horizontal (↔) split</li>
+  <li><strong>Multiple connections</strong> — manage SSH and Docker connections with test connection support</li>
+  <li><strong>Persistent settings</strong> — connections, last code, and preferences survive IDE restarts</li>
+</ul>
+
+<h3>🚀 Quick Start</h3>
+<ol>
+  <li>Open the <strong>PhpPad</strong> tool window (bottom bar)</li>
+  <li>Click <strong>+</strong> → Add SSH or Docker connection</li>
+  <li>Write PHP code in the editor</li>
+  <li>Press <strong>Ctrl+Enter</strong> or click <strong>▶ Run</strong></li>
+</ol>
+
+<h3>🔧 Magic Comments</h3>
+<pre>
+$users = User::limit(10)->get(); //?
+// Inline result: ← array(10)
+
+// Works mid-chain too:
+User::limit(10)->get()/*?*/->count()/*?*/->pluck('email');
+</pre>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.jetbrains.php</depends>
+
+    <actions>
+        <action id="PhpPad.Run"
+                class="com.github.yangusik.phppadplugin.actions.PhpPadRunAction"
+                text="PhpPad: Run Code"
+                description="Run PHP code in PhpPad">
+            <keyboard-shortcut first-keystroke="ctrl ENTER" keymap="$default"/>
+        </action>
+    </actions>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.yangusik.phppadplugin.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.yangusik.phppadplugin.startup.MyProjectActivity" />
+        <toolWindow
+            factoryClass="com.github.yangusik.phppadplugin.toolWindow.PhpPadToolWindowFactory"
+            id="PhpPad"
+            anchor="bottom"
+            icon="/icons/phppad.svg"
+            canCloseContents="false"/>
+        <applicationService
+            serviceImplementation="com.github.yangusik.phppadplugin.services.PhpPadSettings"/>
     </extensions>
 </idea-plugin>
