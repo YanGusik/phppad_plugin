@@ -25,3 +25,7 @@
 - **Configurable run shortcut (Ctrl+Enter)**
 - **Flexible layout** (vertical / horizontal split)
 - **Persistent settings across IDE restarts**
+
+## [0.0.2] - 2026-03-08
+### Fixed
+- Fixed editor scrolling issue by wrapping LanguageTextField in JBScrollPane.

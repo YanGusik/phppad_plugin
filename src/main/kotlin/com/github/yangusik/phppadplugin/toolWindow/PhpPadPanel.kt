@@ -19,6 +19,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.LanguageTextField
 import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import com.jetbrains.php.lang.PhpLanguage
 import java.awt.*
@@ -72,7 +73,12 @@ class PhpPadPanel(private val project: Project) : JPanel(BorderLayout()) {
     init {
         border = JBUI.Borders.empty()
         add(buildToolbar(), BorderLayout.NORTH)
-        splitter.firstComponent = editor
+
+        val editorScrollPane = JBScrollPane(editor).apply {
+                border = JBUI.Borders.empty()
+            }
+        splitter.firstComponent = editorScrollPane
+
         splitter.secondComponent = resultView.component
         add(splitter, BorderLayout.CENTER)
         add(buildStatusBar(), BorderLayout.SOUTH)
