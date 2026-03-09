@@ -33,7 +33,7 @@ repositories {
 dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
-    implementation("com.github.mwiede:jsch:0.2.23")
+    implementation("com.github.mwiede:jsch:2.27.8")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
