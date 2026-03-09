@@ -1,6 +1,7 @@
 package com.github.yangusik.phppadplugin.toolWindow
 
 import com.google.gson.JsonObject
+import com.github.yangusik.phppadplugin.PhpValueFormatter
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorCustomElementRenderer
 import com.intellij.openapi.editor.Inlay
@@ -34,7 +35,7 @@ object PhpPadInlayManager {
                 listOf(serialized)
             }
 
-            val text = items.joinToString(", ") { formatValue(it) }
+            val text = PhpValueFormatter.formatInlayLine(serialized)
             editor.inlayModel.addInlineElement(lineEndOffset, true, InlayRenderer("  // ← $text"))
         }
     }
@@ -43,16 +44,6 @@ object PhpPadInlayManager {
         editor.inlayModel
             .getInlineElementsInRange(0, editor.document.textLength, InlayRenderer::class.java)
             .forEach { it.dispose() }
-    }
-
-    private fun formatValue(obj: JsonObject): String = when (obj.get("type")?.asString) {
-        "null"         -> "null"
-        "bool"         -> if (obj.get("value")?.asBoolean == true) "true" else "false"
-        "int", "float" -> obj.get("value")?.asString ?: "?"
-        "string"       -> "\"${obj.get("value")?.asString?.take(40) ?: ""}\""
-        "array"        -> "array(${obj.get("count")?.asInt ?: 0})"
-        "object"       -> obj.get("class")?.asString?.substringAfterLast("\\") ?: "object"
-        else           -> "?"
     }
 
     // EditorCustomElementRenderer — рисует текст прямо в строке редактора

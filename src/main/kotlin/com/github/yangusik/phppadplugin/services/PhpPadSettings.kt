@@ -84,14 +84,21 @@ class PhpPadSettings : PersistentStateComponent<PhpPadSettings.State> {
 
     fun addHistory(entry: PhpPadHistoryEntry) {
         val list = history
-        list.add(0, entry)
-        if (list.size > 200) list.subList(200, list.size).clear()
+        addHistoryTo(list, entry)
         history = list
     }
 
     fun activeConnection(): SshConnection? = connections.find { it.id == activeConnectionId }
 
     companion object {
+        const val MAX_HISTORY = 200
+
+        /** Pure function — testable without IntelliJ platform. Mutates [list] in place. */
+        fun addHistoryTo(list: MutableList<PhpPadHistoryEntry>, entry: PhpPadHistoryEntry) {
+            list.add(0, entry)
+            if (list.size > MAX_HISTORY) list.subList(MAX_HISTORY, list.size).clear()
+        }
+
         fun getInstance(): PhpPadSettings = service()
     }
 }
