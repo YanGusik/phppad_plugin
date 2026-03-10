@@ -420,6 +420,10 @@ function captureExpressions(string $code): string
 
         if ($trimmed === '') continue;
 
+        // Skip statements that consist only of comments (no real code)
+        $codeOnly = trim(preg_replace(['/\/\/[^\n]*/m', '/\/\*.*?\*\//s'], '', $trimmed));
+        if ($codeOnly === '') continue;
+
         // Block-level statements (if/while/function bodies ending with })
         if ($end === '}') { $out[] = $trimmed; continue; }
 
@@ -447,8 +451,8 @@ function captureExpressions(string $code): string
             $out[] = $trimmed . ';'; continue;
         }
 
-        // Expression — capture its value
-        $out[] = '$__tw_values[] = (' . $trimmed . ');';
+        // Expression — just execute, no auto-capture (use dump() explicitly)
+        $out[] = $trimmed . ';';
     }
 
     $out[] = 'return $__tw_values;';

@@ -11,9 +11,14 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.ide.scratch.ScratchFileService
+import com.intellij.ide.scratch.ScratchRootType
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.ui.JBSplitter
@@ -32,17 +37,24 @@ class PhpPadPanel(private val project: Project) : JPanel(BorderLayout()) {
     private val log = logger<PhpPadPanel>()
     private val settings = PhpPadSettings.getInstance()
     private val connectionBox = JComboBox<SshConnection>()
+    private var httpServer: PhpPadHttpServer? = null
     private val statusLabel = JBLabel("Ready")
-    private val resultView: ResultView = createResultView()
+    private var resultView: ResultView = createResultView()
     private val splitter = JBSplitter(settings.splitterVertical, 0.5f)
+    private val resultContainer = JPanel(BorderLayout())
+    private lateinit var editorScrollPane: JBScrollPane
+    private var scratchBtn: JButton? = null
 
     private var editorEx: com.intellij.openapi.editor.ex.EditorEx? = null
 
     private val editor = LanguageTextField(PhpLanguage.INSTANCE, project, settings.lastCode).apply {
-        font = Font(Font.MONOSPACED, Font.PLAIN, 13)
         setOneLineMode(false)
         addSettingsProvider { ex ->
             editorEx = ex
+            val globalScheme = EditorColorsManager.getInstance().globalScheme
+            ex.colorsScheme.editorFontName = globalScheme.editorFontName
+            ex.colorsScheme.editorFontSize = globalScheme.editorFontSize
+            ex.colorsScheme.lineSpacing = globalScheme.lineSpacing
 
             // Отключаем инспекции (типа "Expression not used") — оставляем только синтаксис
             ApplicationManager.getApplication().invokeLater {
@@ -74,18 +86,128 @@ class PhpPadPanel(private val project: Project) : JPanel(BorderLayout()) {
         border = JBUI.Borders.empty()
         add(buildToolbar(), BorderLayout.NORTH)
 
-        val editorScrollPane = JBScrollPane(editor).apply {
-                border = JBUI.Borders.empty()
-            }
+        editorScrollPane = JBScrollPane(editor).apply {
+            border = JBUI.Borders.empty()
+        }
         splitter.firstComponent = editorScrollPane
 
-        splitter.secondComponent = resultView.component
+        resultContainer.add(resultView.component, BorderLayout.CENTER)
+        splitter.secondComponent = resultContainer
         add(splitter, BorderLayout.CENTER)
         add(buildStatusBar(), BorderLayout.SOUTH)
         refreshConnections()
     }
 
+    override fun addNotify() {
+        super.addNotify()
+        startHttpServer()
+        if (settings.editorMode == "scratch") switchToScratchMode()
+    }
+
+    override fun removeNotify() {
+        super.removeNotify()
+        httpServer?.stop()
+    }
+
     fun triggerRun() = runCode()
+
+    // Called by HTTP API: runs code on given connection, updates UI, calls callback with result
+    fun executeCode(code: String, conn: SshConnection, callback: (com.github.yangusik.phppadplugin.executor.ExecutionResult) -> Unit) {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val result = if (conn.type == "docker") DockerExecutor(conn).execute(code)
+                         else SshExecutor(conn).execute(code)
+            ApplicationManager.getApplication().invokeLater {
+                resultView.showResult(result)
+                if (result.isError) statusLabel.text = "Error"
+                else statusLabel.text = "Done in %.2fms".format(result.json?.get("duration")?.asDouble ?: 0.0)
+            }
+            callback(result)
+        }
+    }
+
+    // ── Scratch file mode ────────────────────────────────────────────────────
+
+    private fun getOrCreateScratchFile(): com.intellij.openapi.vfs.VirtualFile? {
+        val existing = ApplicationManager.getApplication().runReadAction<com.intellij.openapi.vfs.VirtualFile?> {
+            ScratchFileService.getInstance()
+                .findFile(ScratchRootType.getInstance(), "phppad.php", ScratchFileService.Option.existing_only)
+        }
+        if (existing != null) return existing
+        return ScratchRootType.getInstance().createScratchFile(
+            project, "phppad.php", PhpLanguage.INSTANCE, settings.lastCode
+        )
+    }
+
+    private fun scratchDocument(file: com.intellij.openapi.vfs.VirtualFile) =
+        ApplicationManager.getApplication().runReadAction<com.intellij.openapi.editor.Document?> {
+            FileDocumentManager.getInstance().getDocument(file)
+        }
+
+    private fun getScratchCode(): String {
+        val file = getOrCreateScratchFile() ?: return editor.text
+        return ApplicationManager.getApplication().runReadAction<String> {
+            FileDocumentManager.getInstance().getDocument(file)?.text ?: editor.text
+        }
+    }
+
+    private fun setScratchCode(code: String) {
+        val file = getOrCreateScratchFile() ?: run {
+            ApplicationManager.getApplication().runWriteAction { editor.document.setText(code) }
+            return
+        }
+        val doc = scratchDocument(file) ?: return
+        ApplicationManager.getApplication().runWriteAction { doc.setText(code) }
+    }
+
+    private fun switchToScratchMode() {
+        settings.editorMode = "scratch"
+        scratchBtn?.text = "Scratch ✓"
+        val file = getOrCreateScratchFile()
+        if (file != null) {
+            val doc = scratchDocument(file)
+            val isEmpty = ApplicationManager.getApplication().runReadAction<Boolean> {
+                doc?.text?.isBlank() ?: true
+            }
+            if (doc != null && isEmpty) {
+                ApplicationManager.getApplication().runWriteAction { doc.setText(editor.text) }
+            }
+            FileEditorManager.getInstance(project).openFile(file, true)
+        }
+        remove(splitter)
+        add(resultContainer, BorderLayout.CENTER)
+        revalidate(); repaint()
+    }
+
+    private fun switchToEmbeddedMode() {
+        settings.editorMode = "embedded"
+        scratchBtn?.text = "Scratch"
+        remove(resultContainer)
+        splitter.secondComponent = resultContainer
+        add(splitter, BorderLayout.CENTER)
+        revalidate(); repaint()
+    }
+
+    private fun startHttpServer() {
+        httpServer?.stop()
+        if (!settings.httpEnabled) return
+        val server = PhpPadHttpServer(
+            settings = settings,
+            getCode = { if (settings.editorMode == "scratch") getScratchCode() else editor.text },
+            setCode = { code ->
+                ApplicationManager.getApplication().invokeLater {
+                    if (settings.editorMode == "scratch") setScratchCode(code)
+                    else ApplicationManager.getApplication().runWriteAction { editor.document.setText(code) }
+                }
+            },
+            runCode = { code, conn, callback ->
+                val connToUse = settings.connections.find { it.id == conn.id } ?: conn
+                executeCode(code, connToUse, callback)
+            }
+        )
+        val error = server.start(settings.httpHost, settings.httpPort)
+        if (error != null) log.warn("PhpPad HTTP server: $error")
+        else httpServer = server
+    }
 
     private fun createResultView(): ResultView {
         return if (settings.outputMode != "tree" && PhpPadJcefRenderer.isSupported()) {
@@ -95,9 +217,10 @@ class PhpPadPanel(private val project: Project) : JPanel(BorderLayout()) {
         }
     }
 
-    private fun buildToolbar(): JPanel {
+    private fun buildToolbar(): JComponent {
         refreshConnections()
 
+        // ── Connection JComboBox ─────────────────────────────────────────────
         connectionBox.renderer = object : DefaultListCellRenderer() {
             override fun getListCellRendererComponent(
                 list: JList<*>, value: Any?, index: Int, isSelected: Boolean, cellHasFocus: Boolean
@@ -117,67 +240,116 @@ class PhpPadPanel(private val project: Project) : JPanel(BorderLayout()) {
             if (selected != null) settings.activeConnectionId = selected.id
         }
 
-        // "+" кнопка — выпадающее меню SSH / Docker
-        val addMenu = JPopupMenu()
-        addMenu.add(JMenuItem("Add SSH").apply { addActionListener { addConnection("ssh") } })
-        addMenu.add(JMenuItem("Add Docker").apply { addActionListener { addConnection("docker") } })
-        val addBtn = JButton("+").apply {
-            toolTipText = "Add Connection"
-            addActionListener { e ->
-                addMenu.show(this, 0, this.height)
-            }
+        val iconSize = JBUI.scale(22)
+
+        fun compactIconBtn(icon: javax.swing.Icon, tooltip: String) = JButton(icon).apply {
+            toolTipText = tooltip
+            isBorderPainted = false
+            isContentAreaFilled = false
+            margin = JBUI.insets(0)
+            preferredSize = Dimension(iconSize, iconSize)
+            minimumSize = Dimension(iconSize, iconSize)
+            maximumSize = Dimension(iconSize, iconSize)
         }
 
-        val editBtn = JButton("✎").apply {
-            toolTipText = "Edit Connection"
-            addActionListener { editConnection() }
-        }
-        val deleteBtn = JButton("✕").apply {
-            toolTipText = "Delete Connection"
-            addActionListener { deleteConnection() }
-        }
-        val runBtn = JButton("▶ Run").apply {
+        // ── Run ─────────────────────────────────────────────────────────────
+        val runBtn = JButton("Run", com.intellij.icons.AllIcons.Actions.Execute).apply {
             toolTipText = "Run (Ctrl+Enter)"
             addActionListener { triggerRun() }
             background = Color(60, 130, 60)
             foreground = Color.WHITE
             isBorderPainted = false
             isOpaque = true
+            margin = JBUI.insets(2, 8, 2, 8)
         }
-        val snippetsBtn = JButton("☰").apply {
-            toolTipText = "Snippets & History"
-            addActionListener { openSnippets() }
+
+        // ── Add connection ───────────────────────────────────────────────────
+        val addMenu = JPopupMenu()
+        addMenu.add(JMenuItem("Add SSH").apply { addActionListener { addConnection("ssh") } })
+        addMenu.add(JMenuItem("Add Docker").apply { addActionListener { addConnection("docker") } })
+        val addBtn = compactIconBtn(com.intellij.icons.AllIcons.General.Add, "Add Connection").also {
+            it.addActionListener { _ -> addMenu.show(it, 0, it.height) }
         }
-        val modeBtn = JButton(if (settings.outputMode == "tree") "Tree" else "JCEF").apply {
-            toolTipText = "Switch output renderer (restart required)"
+
+        // ── Edit / Delete через правый клик на connectionBox ─────────────────
+        connectionBox.componentPopupMenu = JPopupMenu().apply {
+            add(JMenuItem("✎ Edit connection").apply { addActionListener { editConnection() } })
+            add(JMenuItem("✕ Delete connection").apply { addActionListener { deleteConnection() } })
+        }
+        connectionBox.preferredSize = Dimension(JBUI.scale(140), connectionBox.preferredSize.height)
+        connectionBox.maximumSize = Dimension(JBUI.scale(140), connectionBox.preferredSize.height)
+
+        // ── Snippets & History ───────────────────────────────────────────────
+        val snippetsBtn = compactIconBtn(com.intellij.icons.AllIcons.Actions.ListFiles, "Snippets & History").also {
+            it.addActionListener { _ -> openSnippets() }
+        }
+
+        // ── Scratch toggle ───────────────────────────────────────────────────
+        scratchBtn = JButton(if (settings.editorMode == "scratch") "Scratch ✓" else "Scratch").apply {
+            toolTipText = "Toggle scratch file mode"
+            isBorderPainted = false
+            isContentAreaFilled = false
+            margin = JBUI.insets(2, 6, 2, 6)
             addActionListener {
-                settings.outputMode = if (settings.outputMode == "tree") "jcef" else "tree"
-                text = if (settings.outputMode == "tree") "Tree" else "JCEF"
-                JOptionPane.showMessageDialog(this@PhpPadPanel, "Restart required to apply renderer change.", "Renderer", JOptionPane.INFORMATION_MESSAGE)
-            }
-        }
-        val splitBtn = JButton(if (settings.splitterVertical) "↕" else "↔").apply {
-            toolTipText = "Toggle split orientation"
-            addActionListener {
-                settings.splitterVertical = !settings.splitterVertical
-                splitter.orientation = settings.splitterVertical
-                text = if (settings.splitterVertical) "↕" else "↔"
+                if (settings.editorMode == "scratch") switchToEmbeddedMode()
+                else switchToScratchMode()
             }
         }
 
-        return JPanel(FlowLayout(FlowLayout.LEFT, 4, 4)).apply {
-            add(JBLabel("Connection:"))
+        // ── Settings ⚙ ──────────────────────────────────────────────────────
+        val settingsBtn = compactIconBtn(com.intellij.icons.AllIcons.General.GearPlain, "Settings").also { btn ->
+            btn.addActionListener {
+                val menu = JPopupMenu()
+                val rendererLabel = if (settings.outputMode == "tree") "Output: Tree  →  JCEF"
+                                    else "Output: JCEF  →  Tree"
+                menu.add(JMenuItem(rendererLabel).apply {
+                    addActionListener {
+                        settings.outputMode = if (settings.outputMode == "tree") "jcef" else "tree"
+                        resultView = createResultView()
+                        resultContainer.removeAll()
+                        resultContainer.add(resultView.component, BorderLayout.CENTER)
+                        resultContainer.revalidate()
+                        resultContainer.repaint()
+                    }
+                })
+                val splitLabel = if (settings.splitterVertical) "Split: Vertical  →  Horizontal"
+                                 else "Split: Horizontal  →  Vertical"
+                menu.add(JMenuItem(splitLabel).apply {
+                    addActionListener {
+                        settings.splitterVertical = !settings.splitterVertical
+                        splitter.orientation = settings.splitterVertical
+                    }
+                })
+                menu.addSeparator()
+                menu.add(JMenuItem("Claude API…").apply {
+                    addActionListener {
+                        val server = httpServer ?: PhpPadHttpServer(settings, { editor.text }, {}, { _, _, _ -> })
+                        PhpPadClaudeDialog(settings, server) { startHttpServer() }.isVisible = true
+                    }
+                })
+                menu.show(btn, 0, btn.height)
+            }
+        }
+
+        val toolbarPanel = JPanel(FlowLayout(FlowLayout.LEFT, 2, 2)).apply {
+            add(runBtn)
             add(connectionBox)
             add(addBtn)
-            add(editBtn)
-            add(deleteBtn)
-            add(Box.createHorizontalStrut(8))
-            add(runBtn)
             add(snippetsBtn)
-            add(modeBtn)
-            add(splitBtn)
+            add(scratchBtn!!)
+            add(settingsBtn)
+        }
+        return JBScrollPane(toolbarPanel).apply {
+            horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
+            verticalScrollBarPolicy = JScrollPane.VERTICAL_SCROLLBAR_NEVER
+            border = null
+            val h = toolbarPanel.preferredSize.height
+            minimumSize = Dimension(0, h)
+            maximumSize = Dimension(Int.MAX_VALUE, h)
+            preferredSize = Dimension(Int.MAX_VALUE, h)
         }
     }
+
 
     private fun buildStatusBar(): JPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
         border = JBUI.Borders.customLine(UIManager.getColor("Separator.foreground"), 1, 0, 0, 0)
@@ -229,10 +401,15 @@ class PhpPadPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private fun openSnippets() {
-        val dialog = SnippetsDialog(project, settings, editor.text)
+        val currentCode = if (settings.editorMode == "scratch") getScratchCode() else editor.text
+        val dialog = SnippetsDialog(project, settings, currentCode)
         dialog.show()
-        val code = dialog.selectedCode
-        if (code != null) {
+        val code = dialog.selectedCode ?: return
+        if (settings.editorMode == "scratch") {
+            setScratchCode(code)
+            // Обновляем открытый scratch файл
+            getOrCreateScratchFile()?.let { FileEditorManager.getInstance(project).openFile(it, true) }
+        } else {
             ApplicationManager.getApplication().runWriteAction {
                 editor.document.setText(code)
             }
@@ -245,7 +422,7 @@ class PhpPadPanel(private val project: Project) : JPanel(BorderLayout()) {
             JOptionPane.showMessageDialog(this, "Please add a connection first.", "No Connection", JOptionPane.WARNING_MESSAGE)
             return
         }
-        val code = editor.text
+        val code = if (settings.editorMode == "scratch") getScratchCode() else editor.text
         settings.lastCode = code
         statusLabel.text = "Running..."
         resultView.clear()

@@ -52,7 +52,9 @@ body {
   color: var(--dim); padding: 0 7px; border-radius: 2px;
   cursor: pointer; font-size: 10px; font-family: inherit;
 }
+.tbtn:hover { color: var(--text); border-color: #666; }
 .tbtn.on { background: #383838; color: var(--text); border-color: #555; }
+.json-actions { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle; }
 table { border-collapse: collapse; width: 100%; }
 th {
   background: var(--bg3); color: var(--dim);
@@ -76,6 +78,7 @@ tr:hover td { background: var(--bg3); }
 .trace { color: var(--dim); font-size: 11px; padding: 1px 0; }
 .empty { color: var(--dim); font-style: italic; text-align: center; padding: 20px; }
 .panel-arrow { color: var(--dim); margin-left: auto; font-size: 10px; }
+.json-tree { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -86,6 +89,7 @@ var esc = function(s) {
 };
 var shortCls = function(c) { return c ? c.split('\\').pop() : 'object'; };
 var _nc = 0;
+var _jsonStore = {};
 
 window.toggleNode = function(id) {
   var el = document.getElementById(id);
@@ -105,6 +109,84 @@ window.togglePanel = function(id) {
   if (arrow) arrow.textContent = collapsed ? '▼' : '▶';
 };
 
+window.copyJson = function(id, event) {
+  if (event) event.stopPropagation();
+  var data = _jsonStore[id];
+  if (!data) return;
+  var el = document.createElement('textarea');
+  el.value = data;
+  el.style.position = 'fixed';
+  el.style.opacity = '0';
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  var btn = document.getElementById(id + '-copybtn');
+  if (btn) { btn.textContent = 'Copied!'; setTimeout(function(){ btn.textContent = 'Copy'; }, 1200); }
+};
+
+window.showJsonTree = function(id, event) {
+  if (event) event.stopPropagation();
+  var data = _jsonStore[id];
+  if (!data) return;
+  var container = document.getElementById(id + '-tree');
+  var btn = document.getElementById(id + '-treebtn');
+  if (!container) return;
+  if (container.style.display !== 'none') {
+    container.style.display = 'none';
+    if (btn) btn.textContent = 'Tree';
+    return;
+  }
+  if (!container.dataset.rendered) {
+    try {
+      var parsed = JSON.parse(data);
+      container.innerHTML = renderJsonVal(parsed, 0);
+      container.dataset.rendered = '1';
+    } catch(e) {
+      container.innerHTML = '<span class="v-null">Invalid JSON</span>';
+      container.dataset.rendered = '1';
+    }
+  }
+  container.style.display = '';
+  if (btn) btn.textContent = 'Hide tree';
+};
+
+function renderJsonVal(v, depth) {
+  if (v === null) return '<span class="v-null">null</span>';
+  if (typeof v === 'boolean') return '<span class="v-bool">' + v + '</span>';
+  if (typeof v === 'number') return '<span class="v-num">' + v + '</span>';
+  if (typeof v === 'string') return '<span class="v-str">"' + esc(v) + '"</span>';
+  if (Array.isArray(v)) {
+    if (!v.length) return '<span class="v-cls">[]</span>';
+    if (depth > 5) return '<span class="v-cls">[' + v.length + ']</span>';
+    var id = 'n' + (_nc++);
+    var h = '<div><span onclick="toggleNode(\'' + id + '\')" style="cursor:pointer">' +
+      '<span class="node-toggle" id="' + id + '-a">▼</span>' +
+      '<span class="v-cls">array(' + v.length + ')</span></span>' +
+      '<div class="tree" id="' + id + '">';
+    v.forEach(function(item, i) {
+      h += '<div class="tree-row"><span class="tree-key">' + i + '</span><span>\u2192</span>' + renderJsonVal(item, depth+1) + '</div>';
+    });
+    return h + '</div></div>';
+  }
+  if (typeof v === 'object') {
+    var keys = Object.keys(v);
+    if (!keys.length) return '<span class="v-cls">{}</span>';
+    if (depth > 5) return '<span class="v-cls">{' + keys.length + '}</span>';
+    var id = 'n' + (_nc++);
+    var h = '<div><span onclick="toggleNode(\'' + id + '\')" style="cursor:pointer">' +
+      '<span class="node-toggle" id="' + id + '-a">▼</span>' +
+      '<span class="v-cls">object(' + keys.length + ')</span></span>' +
+      '<div class="tree" id="' + id + '">';
+    keys.forEach(function(k) {
+      h += '<div class="tree-row"><span class="tree-key">' + esc(k) + '</span><span>\u2192</span>' + renderJsonVal(v[k], depth+1) + '</div>';
+    });
+    return h + '</div></div>';
+  }
+  return '<span>' + esc(String(v)) + '</span>';
+}
+
 function renderVal(v, depth) {
   depth = depth || 0;
   if (!v) return '<span class="v-null">null</span>';
@@ -115,8 +197,24 @@ function renderVal(v, depth) {
     case 'float': return '<span class="v-num">' + esc(String(v.value)) + '</span>';
     case 'string':
       var s = String(v.value || '');
+      var len = v.length || s.length;
+      var trimmed = s.trim();
+      // Detect JSON string
+      if (len > 2 && (trimmed[0] === '{' || trimmed[0] === '[')) {
+        try {
+          JSON.parse(trimmed);
+          var jid = 'j' + (_nc++);
+          _jsonStore[jid] = trimmed;
+          return '<span class="v-str">string(' + len + ') [JSON]</span>' +
+            '<span class="json-actions">' +
+            '<button class="tbtn" id="' + jid + '-copybtn" onclick="copyJson(\'' + jid + '\',event)">Copy</button>' +
+            '<button class="tbtn" id="' + jid + '-treebtn" onclick="showJsonTree(\'' + jid + '\',event)">Tree</button>' +
+            '</span>' +
+            '<div class="json-tree" id="' + jid + '-tree" style="display:none"></div>';
+        } catch(e) {}
+      }
       return '<span class="v-str">"' + esc(s.length > 120 ? s.substring(0,120)+'\u2026' : s) + '"</span>' +
-             (v.length ? ' <span class="v-len">(' + v.length + ')</span>' : '');
+             (len ? ' <span class="v-len">(' + len + ')</span>' : '');
     case 'array':
       if (depth > 5) return '<span class="v-cls">array(' + (v.count||0) + ')</span>';
       return renderArray(v, depth);
@@ -175,7 +273,8 @@ function renderTable(v) {
   return h + '</tbody></table></div>';
 }
 
-window.switchMode = function(id, mode) {
+window.switchMode = function(id, mode, event) {
+  if (event) event.stopPropagation();
   document.getElementById(id+'-tree').style.display = mode==='tree' ? '' : 'none';
   document.getElementById(id+'-table').style.display = mode==='table' ? '' : 'none';
   document.getElementById(id+'-tbtn').className = 'tbtn' + (mode==='tree'?' on':'');
@@ -184,16 +283,18 @@ window.switchMode = function(id, mode) {
 
 function renderCard(v, idx) {
   var id = 'c' + idx;
+  var pid = 'p' + idx;
   var tab = isTabular(v);
-  var hdr = '<div class="card-header"><span class="badge">' + (idx+1) + '</span>';
+  var hdr = '<div class="card-header clickable" onclick="togglePanel(\'' + pid + '\')">' +
+    '<span class="badge">' + (idx+1) + '</span>';
   if (tab) {
-    hdr += '<span class="toggle">' +
-      '<button class="tbtn on" id="'+id+'-tbtn" onclick="switchMode(\''+id+'\',\'tree\')">Tree</button>' +
-      '<button class="tbtn" id="'+id+'-tbtn2" onclick="switchMode(\''+id+'\',\'table\')">Table</button>' +
+    hdr += '<span class="toggle" onclick="event.stopPropagation()">' +
+      '<button class="tbtn on" id="'+id+'-tbtn" onclick="switchMode(\''+id+'\',\'tree\',event)">Tree</button>' +
+      '<button class="tbtn" id="'+id+'-tbtn2" onclick="switchMode(\''+id+'\',\'table\',event)">Table</button>' +
       '</span>';
   }
-  hdr += '</div>';
-  var body = '<div class="card-body">' +
+  hdr += '<span class="panel-arrow" id="' + pid + '-arrow">▼</span></div>';
+  var body = '<div class="card-body" id="' + pid + '-body">' +
     '<div id="'+id+'-tree">' + renderVal(v, 0) + '</div>' +
     (tab ? '<div id="'+id+'-table" style="display:none">' + renderTable(v) + '</div>' : '') +
     '</div>';
@@ -220,11 +321,13 @@ function renderSqlSection(queries) {
 
 window.clearResult = function() {
   _nc = 0;
+  _jsonStore = {};
   document.getElementById('root').innerHTML = '<div class="empty">Run some code to see results</div>';
 };
 
 window.renderResult = function(data) {
   _nc = 0;
+  _jsonStore = {};
   var h = '';
   if (data.error) {
     h = '<div class="card err-bar"><div class="card-body"><div class="err-class">Error</div><div class="err-msg">' + esc(data.error) + '</div></div></div>';
@@ -237,7 +340,6 @@ window.renderResult = function(data) {
   if (data.bootstrapError) {
     h += '<div class="card err-bar"><div class="card-body"><div class="err-class">Bootstrap Error</div><div class="err-msg">' + esc(data.bootstrapError) + '</div></div></div>';
   }
-  // SQL queries at the top (collapsible)
   if (data.queries && data.queries.length) {
     h += renderSqlSection(data.queries);
   }

@@ -60,6 +60,12 @@ User::limit(10)->get()/*?*/->count()/*?*/->pluck('email');
                 description="Run PHP code in PhpPad">
             <keyboard-shortcut first-keystroke="ctrl ENTER" keymap="$default"/>
         </action>
+        <action id="PhpPad.RunInEditor"
+                class="com.github.yangusik.phppadplugin.actions.PhpPadRunInEditorAction"
+                text="▶ Run in PhpPad"
+                description="Run phppad.php in PhpPad tool window">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="EditorCopy"/>
+        </action>
     </actions>
 
     <extensions defaultExtensionNs="com.intellij">
@@ -71,5 +77,8 @@ User::limit(10)->get()/*?*/->count()/*?*/->pluck('email');
             canCloseContents="false"/>
         <applicationService
             serviceImplementation="com.github.yangusik.phppadplugin.services.PhpPadSettings"/>
+        <codeInsight.lineMarkerProvider
+            language="PHP"
+            implementationClass="com.github.yangusik.phppadplugin.actions.PhpPadGutterProvider"/>
     </extensions>
 </idea-plugin>

@@ -26,6 +26,27 @@
 - **Flexible layout** (vertical / horizontal split)
 - **Persistent settings across IDE restarts**
 
+## [0.0.3] - 2026-03-10
+### Added
+- **Scratch file mode** — edit code in the main PhpStorm editor (`phppad.php` scratch file), output fills the full tool window panel
+- **HTTP API server** for Claude integration (configurable host/port, enabled via Claude button)
+- **Claude button** — shows server status, Quick Start, API reference, and CLAUDE.md snippet
+- **▶ Run in PhpPad** context menu action in the editor (visible only for `phppad.php`)
+- **Gutter run button** — green ▶ icon in the gutter of `phppad.php` scratch file
+- **Compact toolbar** — icon buttons (AllIcons), native connection dropdown, settings in ⚙ popup
+- **Scrollable toolbar** — buttons never disappear when the panel is narrow
+
+### Fixed
+- Editor font now matches global PhpStorm font scheme (was hardcoded)
+- Commenting out the last code block no longer causes `syntax error: unexpected token "return"`
+- Auto-capture of expression values removed — only explicit `dump()` calls produce output
+- JSON output in JCEF: Copy button and lazy Tree view per value
+- Collapsible result blocks in JCEF renderer
+- Renderer (JCEF ↔ Tree) and split orientation can now be switched without restarting PhpStorm
+- History "Open" button now correctly replaces editor code
+- Snippets and History work correctly in scratch file mode
+- `ScratchFileService.findFile` and `FileDocumentManager.getDocument` wrapped in `runReadAction` to prevent threading errors
+
 ## [0.0.2] - 2026-03-08
 ### Fixed
 - Fixed editor scrolling issue by wrapping LanguageTextField in JBScrollPane.

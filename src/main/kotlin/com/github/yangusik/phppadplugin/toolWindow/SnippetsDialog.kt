@@ -78,7 +78,7 @@ class SnippetsDialog(
 
     init {
         title = "Snippets & History"
-        isModal = false
+        isModal = true
         init()
         loadSnippets()
         loadHistory()

@@ -46,6 +46,10 @@ class PhpPadSettings : PersistentStateComponent<PhpPadSettings.State> {
         var splitterVertical: Boolean = false
         var snippetsJson: String = "[]"
         var historyJson: String = "[]"
+        var httpEnabled: Boolean = true
+        var httpPort: Int = 7788
+        var httpHost: String = "0.0.0.0"
+        var editorMode: String = "embedded"  // "embedded" | "scratch"
     }
 
     private val gson = Gson()
@@ -77,6 +81,22 @@ class PhpPadSettings : PersistentStateComponent<PhpPadSettings.State> {
     var snippets: MutableList<PhpPadSnippet>
         get() = gson.fromJson(myState.snippetsJson, object : TypeToken<MutableList<PhpPadSnippet>>() {}.type) ?: mutableListOf()
         set(v) { myState.snippetsJson = gson.toJson(v) }
+
+    var editorMode: String
+        get() = myState.editorMode
+        set(v) { myState.editorMode = v }
+
+    var httpEnabled: Boolean
+        get() = myState.httpEnabled
+        set(v) { myState.httpEnabled = v }
+
+    var httpPort: Int
+        get() = myState.httpPort
+        set(v) { myState.httpPort = v }
+
+    var httpHost: String
+        get() = myState.httpHost
+        set(v) { myState.httpHost = v }
 
     var history: MutableList<PhpPadHistoryEntry>
         get() = gson.fromJson(myState.historyJson, object : TypeToken<MutableList<PhpPadHistoryEntry>>() {}.type) ?: mutableListOf()
