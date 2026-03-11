@@ -1,4 +1,4 @@
-package com.github.yangusik.phppadplugin.toolWindow
+package com.github.yangusik.phppadplugin.toolWindow.dialog
 
 import com.github.yangusik.phppadplugin.services.PhpPadHistoryEntry
 import com.github.yangusik.phppadplugin.services.PhpPadSettings

@@ -1,6 +1,6 @@
 package com.github.yangusik.phppadplugin.actions
 
-import com.github.yangusik.phppadplugin.toolWindow.PhpPadPanel
+import com.github.yangusik.phppadplugin.toolWindow.panel.PhpPadPanel
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.wm.ToolWindowManager

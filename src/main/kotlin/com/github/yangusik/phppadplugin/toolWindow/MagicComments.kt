@@ -13,7 +13,7 @@ import java.awt.Font
 import java.awt.Graphics
 import java.awt.Rectangle
 
-object PhpPadInlayManager {
+object MagicComments {
 
     fun show(editor: EditorEx, magicValues: JsonObject) {
         clear(editor)

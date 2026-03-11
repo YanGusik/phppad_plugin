@@ -1,4 +1,4 @@
-package com.github.yangusik.phppadplugin.toolWindow
+package com.github.yangusik.phppadplugin.toolWindow.renderer
 
 import com.github.yangusik.phppadplugin.executor.ExecutionResult
 import com.google.gson.JsonElement
@@ -14,7 +14,7 @@ import java.awt.event.MouseEvent
 import javax.swing.*
 import javax.swing.tree.*
 
-class ResultRenderer : JPanel(BorderLayout()), ResultView {
+class TreeRenderer : JPanel(BorderLayout()), ResultView {
 
     override val component: JComponent get() = this
 

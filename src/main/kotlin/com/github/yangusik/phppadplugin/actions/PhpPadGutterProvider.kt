@@ -1,6 +1,6 @@
 package com.github.yangusik.phppadplugin.actions
 
-import com.github.yangusik.phppadplugin.toolWindow.PhpPadPanel
+import com.github.yangusik.phppadplugin.toolWindow.panel.PhpPadPanel
 import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProvider
 import com.intellij.ide.scratch.ScratchFileService

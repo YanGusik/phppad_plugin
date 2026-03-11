@@ -1,6 +1,7 @@
-package com.github.yangusik.phppadplugin.toolWindow
+package com.github.yangusik.phppadplugin.toolWindow.dialog
 
 import com.github.yangusik.phppadplugin.services.PhpPadSettings
+import com.github.yangusik.phppadplugin.toolWindow.HttpServer
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
@@ -9,9 +10,9 @@ import java.awt.datatransfer.StringSelection
 import javax.swing.*
 import javax.swing.border.TitledBorder
 
-class PhpPadClaudeDialog(
+class ClaudeDialog(
     private val settings: PhpPadSettings,
-    private val httpServer: PhpPadHttpServer,
+    private val getHttpServer: () -> HttpServer?,
     private val onRestartServer: () -> Unit
 ) : JDialog() {
 
@@ -51,7 +52,8 @@ class PhpPadClaudeDialog(
         val enableBox = JCheckBox("Enabled", settings.httpEnabled)
 
         fun refreshStatus() {
-            if (httpServer.isRunning) {
+            val httpServer = getHttpServer()
+            if (httpServer != null && httpServer.isRunning) {
                 statusDot.foreground = Color(60, 180, 60)
                 statusDot.text = "●"
                 statusLabel.text = "Running on ${settings.httpHost}:${httpServer.port}"
@@ -67,7 +69,7 @@ class PhpPadClaudeDialog(
             addActionListener {
                 val port = portField.text.trim().toIntOrNull()
                 if (port == null || port < 1024 || port > 65535) {
-                    JOptionPane.showMessageDialog(this@PhpPadClaudeDialog,
+                    JOptionPane.showMessageDialog(this@ClaudeDialog,
                         "Invalid port. Use 1024–65535.", "Error", JOptionPane.ERROR_MESSAGE)
                     return@addActionListener
                 }
@@ -103,7 +105,7 @@ curl http://localhost:$port/connections
 curl -X POST http://localhost:$port/editor \
   -H "Content-Type: application/json" \
   -d '{
-    "code": "<?php\n\${'\$'}user = User::find(1);\ndump(\${'\$'}user->name);"
+    "code": "<?php\n${'$'}user = User::find(1);\ndump(${'$'}user->name);"
   }'
 
 # 3. Run the code in editor

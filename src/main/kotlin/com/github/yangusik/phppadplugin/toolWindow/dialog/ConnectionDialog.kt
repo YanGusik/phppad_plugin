@@ -1,4 +1,4 @@
-package com.github.yangusik.phppadplugin.toolWindow
+package com.github.yangusik.phppadplugin.toolWindow.dialog
 
 import com.github.yangusik.phppadplugin.services.SshConnection
 import com.intellij.openapi.project.Project

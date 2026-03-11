@@ -1,5 +1,6 @@
 package com.github.yangusik.phppadplugin.toolWindow
 
+import com.github.yangusik.phppadplugin.toolWindow.panel.PhpPadPanel
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory

@@ -6,6 +6,18 @@
 ### Added
 - Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
 
+## [0.0.4] - 2026-03-10
+### Added
+- **Compact toolbar** — icon-only buttons (AllIcons), native connection dropdown, edit/delete buttons next to connection, settings in ⚙ popup
+- **Adaptive toolbar** — hides connection dropdown when panel is too narrow; buttons never disappear
+
+### Fixed
+- Output panel not visible in embedded mode after switching back from scratch mode — `resultContainer` is no longer moved out of the splitter
+- Magic comments (`//?`) not working in scratch file mode — `getActiveEditorEx()` now returns the scratch file editor
+- `dd()` calls no longer cause "Error" — runner replaces `dd()` with `dump()` so value is captured without killing the script
+- Scratch mode output fills the full panel height (splitter proportion set to `0.0`)
+- Codebase split into focused files (`EditorMode`, `Toolbar`, `JcefRenderer`, `TreeRenderer`, `MagicComments`, `HttpServer`) for maintainability
+
 ## [0.0.1] - 2026-03-08
 ### Added
 - Initial release of **PHPPad — PHP REPL for PhpStorm**

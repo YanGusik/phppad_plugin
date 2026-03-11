@@ -97,6 +97,9 @@ $code = preg_replace_callback('/^[ \t]*use\s+[^;{]+;[ \t]*$/m', function ($m) us
 }, $code);
 $useBlock = $useStatements ? implode("\n", $useStatements) . "\n" : '';
 
+// Replace dd() with dump() — in REPL context die() breaks JSON output; value is still captured
+$code = preg_replace('/\bdd\s*\(/', 'dump(', $code);
+
 // Transform magic comments (//?  /*?*/  /*?->method()*/  /*?.*/)
 $code = transformMagicComments($code, $mcLineOffset);
 

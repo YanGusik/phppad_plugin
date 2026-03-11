@@ -1,4 +1,4 @@
-package com.github.yangusik.phppadplugin.toolWindow
+package com.github.yangusik.phppadplugin.toolWindow.renderer
 
 import com.github.yangusik.phppadplugin.executor.ExecutionResult
 import javax.swing.JComponent

@@ -3,26 +3,25 @@ package com.github.yangusik.phppadplugin.toolWindow
 import com.github.yangusik.phppadplugin.executor.ExecutionResult
 import com.github.yangusik.phppadplugin.services.PhpPadSettings
 import com.github.yangusik.phppadplugin.services.SshConnection
-import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.intellij.openapi.diagnostic.logger
 import com.sun.net.httpserver.HttpExchange
-import com.sun.net.httpserver.HttpServer
+import com.sun.net.httpserver.HttpServer as JdkHttpServer
 import java.net.BindException
 import java.net.InetSocketAddress
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-class PhpPadHttpServer(
+class HttpServer(
     private val settings: PhpPadSettings,
     private val getCode: () -> String,
     private val setCode: (String) -> Unit,
     private val runCode: (code: String, conn: SshConnection, callback: (ExecutionResult) -> Unit) -> Unit
 ) {
-    private val log = logger<PhpPadHttpServer>()
+    private val log = logger<HttpServer>()
     private val gson = GsonBuilder().setLenient().create()
-    private var server: HttpServer? = null
+    private var server: JdkHttpServer? = null
 
     val isRunning get() = server != null
     val port get() = server?.address?.port ?: 0
@@ -30,7 +29,7 @@ class PhpPadHttpServer(
     fun start(host: String, port: Int): String? {
         stop()
         return try {
-            val s = HttpServer.create(InetSocketAddress(host, port), 0)
+            val s = JdkHttpServer.create(InetSocketAddress(host, port), 0)
             s.executor = Executors.newFixedThreadPool(4)
             s.createContext("/connections", ::handleConnections)
             s.createContext("/editor", ::handleEditor)

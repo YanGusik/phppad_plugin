@@ -1,4 +1,4 @@
-package com.github.yangusik.phppadplugin.toolWindow
+package com.github.yangusik.phppadplugin.toolWindow.renderer
 
 import com.github.yangusik.phppadplugin.executor.ExecutionResult
 import com.intellij.openapi.diagnostic.logger
@@ -11,9 +11,9 @@ import java.awt.BorderLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
 
-class PhpPadJcefRenderer : JPanel(BorderLayout()), ResultView {
+class JcefRenderer : JPanel(BorderLayout()), ResultView {
 
-    private val log = logger<PhpPadJcefRenderer>()
+    private val log = logger<JcefRenderer>()
     private val browser = JBCefBrowser()
     private var pageLoaded = false
     private var pendingResult: ExecutionResult? = null
@@ -22,7 +22,7 @@ class PhpPadJcefRenderer : JPanel(BorderLayout()), ResultView {
     override val component: JComponent get() = this
 
     init {
-        val html = PhpPadJcefRenderer::class.java
+        val html = JcefRenderer::class.java
             .getResourceAsStream("/phppad/result.html")!!
             .bufferedReader().readText()
 
