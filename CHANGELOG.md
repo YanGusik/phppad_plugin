@@ -6,6 +6,11 @@
 ### Added
 - Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
 
+## [0.0.5] - 2026-03-12
+### Fixed
+- Claude dialog status not refreshing after "Apply & Restart" — now updates via `invokeLater` after server restart
+- Claude dialog showing stale status (e.g. "Running" when server was stopped) — status now re-reads on every window focus gain
+
 ## [0.0.4] - 2026-03-10
 ### Added
 - **Compact toolbar** — icon-only buttons (AllIcons), native connection dropdown, edit/delete buttons next to connection, settings in ⚙ popup

@@ -7,6 +7,8 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import java.awt.*
 import java.awt.datatransfer.StringSelection
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
 import javax.swing.*
 import javax.swing.border.TitledBorder
 
@@ -16,6 +18,8 @@ class ClaudeDialog(
     private val onRestartServer: () -> Unit
 ) : JDialog() {
 
+    private var refreshStatus: (() -> Unit)? = null
+
     init {
         title = "PhpPad — Claude Integration"
         isModal = false
@@ -24,6 +28,9 @@ class ClaudeDialog(
         pack()
         setLocationRelativeTo(null)
         minimumSize = Dimension(560, 500)
+        addWindowFocusListener(object : WindowAdapter() {
+            override fun windowGainedFocus(e: WindowEvent) = refreshStatus?.invoke() ?: Unit
+        })
     }
 
     private fun buildContent(): JComponent {
@@ -51,7 +58,7 @@ class ClaudeDialog(
         val hostField = JTextField(settings.httpHost, 12)
         val enableBox = JCheckBox("Enabled", settings.httpEnabled)
 
-        fun refreshStatus() {
+        val doRefresh = {
             val httpServer = getHttpServer()
             if (httpServer != null && httpServer.isRunning) {
                 statusDot.foreground = Color(60, 180, 60)
@@ -63,7 +70,8 @@ class ClaudeDialog(
                 statusLabel.text = "Stopped"
             }
         }
-        refreshStatus()
+        refreshStatus = doRefresh
+        doRefresh()
 
         val applyBtn = JButton("Apply & Restart").apply {
             addActionListener {
@@ -77,7 +85,7 @@ class ClaudeDialog(
                 settings.httpHost = hostField.text.trim().ifBlank { "0.0.0.0" }
                 settings.httpEnabled = enableBox.isSelected
                 onRestartServer()
-                refreshStatus()
+                SwingUtilities.invokeLater { doRefresh() }
             }
         }
 
